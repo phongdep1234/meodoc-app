@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mèo đọc sách: biểu tượng tự vẽ (108x108, vùng an toàn 66x66 ở giữa) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- tai -->
+    <path android:fillColor="#FFE3F0" android:pathData="M34,46 L38,26 L50,38 Z" />
+    <path android:fillColor="#FFE3F0" android:pathData="M74,46 L70,26 L58,38 Z" />
+    <path android:fillColor="#FF7AB6" android:pathData="M38,42 L40,32 L46,38 Z" />
+    <path android:fillColor="#FF7AB6" android:pathData="M70,42 L68,32 L62,38 Z" />
+    <!-- đầu -->
+    <path android:fillColor="#FFE3F0"
+        android:pathData="M54,34 C68,34 78,43 78,55 C78,66 68,72 54,72 C40,72 30,66 30,55 C30,43 40,34 54,34 Z" />
+    <!-- mắt -->
+    <path android:fillColor="#4B1535" android:pathData="M44,52 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <path android:fillColor="#4B1535" android:pathData="M64,52 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <!-- mũi -->
+    <path android:fillColor="#FF7AB6" android:pathData="M51,58 L57,58 L54,61 Z" />
+    <!-- sách mở -->
+    <path android:fillColor="#FFFFFF" android:pathData="M30,68 L53,64 L53,82 L30,86 Z" />
+    <path android:fillColor="#F6D3E4" android:pathData="M78,68 L55,64 L55,82 L78,86 Z" />
+    <path android:strokeColor="#4B1535" android:strokeWidth="1.2"
+        android:pathData="M34,72 L49,69.5 M34,76 L49,73.5 M59,69.5 L74,72 M59,73.5 L74,76" />
+</vector>

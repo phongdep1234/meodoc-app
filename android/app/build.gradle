@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.phong.meodoc'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.phong.meodoc'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            // Khoá ký tự tạo (meodoc.jks) để cài/cập nhật APK release ngoài Play Store
+            storeFile file('meodoc.jks')
+            storePassword 'meodoc123'
+            keyAlias 'meodoc'
+            keyPassword 'meodoc123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
