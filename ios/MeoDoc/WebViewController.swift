@@ -43,6 +43,11 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         config.websiteDataStore = .default()          // giữ cookie đăng nhập
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        config.preferences.javaScriptCanOpenWindowsAutomatically = false
+        if let js = AdShield.script {
+            config.userContentController.addUserScript(
+                WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        }
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -89,7 +94,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         })
 
         let last = UserDefaults.standard.string(forKey: "last").flatMap(URL.init(string:)) ?? home
-        webView.load(URLRequest(url: last))
+        AdShield.installRules(into: config.userContentController) { [weak self] in
+            self?.webView.load(URLRequest(url: last))
+        }
     }
 
     private func buildBar() {
@@ -183,22 +190,27 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = action.request.url else { return decisionHandler(.allow) }
-        let h = url.host ?? ""
-        let isSite = h == host || h.hasSuffix("." + host)
+        guard let url = action.request.url else { return decisionHandler(.cancel) }
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme == "about" || scheme == "blob" || scheme == "data" { return decisionHandler(.allow) }
+        // tiktok://, shopee://, itms-apps://… → không bao giờ mở app khác
+        guard scheme == "http" || scheme == "https" else { return decisionHandler(.cancel) }
+        let h = (url.host ?? "").lowercased()
         let mainFrame = action.targetFrame?.isMainFrame ?? true
-        if isSite || !mainFrame || url.scheme == "about" || url.scheme == "blob" || url.scheme == "data" {
-            return decisionHandler(.allow)
+        if mainFrame {
+            // Chỉ ở lại meosss.com; mọi chuyển hướng quảng cáo ra ngoài bị bỏ qua
+            decisionHandler(AdShield.isSite(h) || h == "challenges.cloudflare.com" ? .allow : .cancel)
+        } else {
+            decisionHandler(AdShield.isAllowedHost(h) ? .allow : .cancel)
         }
-        // Link ngoài (Facebook, Discord…) mở bằng Safari / app tương ứng
-        UIApplication.shared.open(url)
-        decisionHandler(.cancel)
     }
 
-    // Link mở cửa sổ mới (target=_blank) → mở ngay trong app
+    // Popup / target=_blank: chỉ mở nếu là trang trong meosss.com (mở ngay trong app)
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if action.targetFrame == nil, let u = action.request.url { webView.load(URLRequest(url: u)) }
+        if let u = action.request.url, AdShield.isSite((u.host ?? "").lowercased()) {
+            webView.load(URLRequest(url: u))
+        }
         return nil
     }
 

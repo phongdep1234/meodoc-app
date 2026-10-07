@@ -7,13 +7,16 @@ targets:
   MeoDoc:
     type: application
     platform: iOS
-    sources: [MeoDoc]
+    sources:
+      - path: MeoDoc
+      - path: ../shared/adshield.js
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.phong.meodoc
         PRODUCT_NAME: MeoDoc
-        MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

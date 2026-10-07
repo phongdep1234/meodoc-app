@@ -18,6 +18,7 @@ import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -44,6 +45,7 @@ public class MainActivity extends Activity {
     private TextView[] tabs;
     private SharedPreferences prefs;
     private ValueCallback<Uri[]> fileCallback;
+    private String shieldJs = "";
     private boolean reading = false;
     private boolean barHidden = false;
     private long lastBack = 0;
@@ -90,6 +92,9 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        s.setJavaScriptCanOpenWindowsAutomatically(false);
+        s.setSupportMultipleWindows(false);
+        shieldJs = AdShield.loadScript(this);
 
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
@@ -98,22 +103,30 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                Uri u = req.getUrl();
-                String h = u.getHost();
-                String scheme = u.getScheme();
-                if (h != null && (h.equals(HOST) || h.endsWith("." + HOST))) return false;
-                if ("http".equals(scheme) || "https".equals(scheme)) {
-                    // Một số tài nguyên (gravatar, captcha…) có thể mở trong khung; chỉ chuyển link điều hướng chính ra ngoài
-                    if (!req.isForMainFrame()) return false;
-                }
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, u));
-                } catch (Exception ignored) { }
-                return true;
+                // Chỉ đi trong meosss.com. Mọi chuyển hướng ra ngoài (quảng cáo, TikTok, Shopee,
+                // intent://, market://…) đều bị bỏ qua — không mở trình duyệt hay app khác.
+                return !AdShield.isAllowedNavigation(req.getUrl());
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
+                if (AdShield.shouldBlock(req)) return AdShield.empty();
+                return null;
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                injectShield();
+            }
+
+            @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                injectShield();
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                injectShield();
                 CookieManager.getInstance().flush();
                 if (url != null && url.contains(HOST)) prefs.edit().putString("last", url).apply();
                 updateMode(url);
@@ -269,6 +282,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+    }
+
+    private void injectShield() {
+        if (!shieldJs.isEmpty()) web.evaluateJavascript(shieldJs, null);
     }
 
     private int dp(int v) {
