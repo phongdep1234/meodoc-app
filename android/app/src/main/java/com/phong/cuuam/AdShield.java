@@ -93,8 +93,8 @@ final class AdShield {
                 new ByteArrayInputStream(new byte[0]));
     }
 
-    static String loadScript(Context c) {
-        try (InputStream in = c.getAssets().open("adshield.js")) {
+    static String loadScript(Context c, String name) {
+        try (InputStream in = c.getAssets().open(name)) {
             byte[] b = new byte[in.available()];
             int n = in.read(b);
             return new String(b, 0, Math.max(n, 0), StandardCharsets.UTF_8);
