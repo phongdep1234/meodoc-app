@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cuốn sách đang mở (khung 108x108, nằm gọn trong vùng an toàn 66dp ở giữa) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- bìa sách phía sau -->
+    <path android:fillColor="#0D3C8C"
+        android:pathData="M25,39 L25,77 C36,74.5 46,75.5 54,80 C62,75.5 72,74.5 83,77 L83,39 L80,39 L80,73 C71,71 62,72 54,76.5 C46,72 37,71 28,73 L28,39 Z" />
+    <!-- trang trái -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M54,37 C46,31.5 37,30.5 28,32.5 L28,73 C37,71 46,72 54,76.5 Z" />
+    <!-- trang phải -->
+    <path android:fillColor="#E3F0FF"
+        android:pathData="M54,37 C62,31.5 71,30.5 80,32.5 L80,73 C71,71 62,72 54,76.5 Z" />
+    <!-- gáy sách -->
+    <path android:strokeColor="#1565C0" android:strokeWidth="1.2" android:strokeLineCap="round"
+        android:pathData="M54,37 L54,76.5" />
+    <!-- dòng chữ trang trái -->
+    <path android:strokeColor="#90CAF9" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M33,42 C39,40.6 44,41 49,43 M33,49 C39,47.6 44,48 49,50 M33,56 C39,54.6 44,55 49,57 M33,63 C39,61.6 44,62 49,64" />
+    <!-- dòng chữ trang phải -->
+    <path android:strokeColor="#90CAF9" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M59,43 C64,41 69,40.6 75,42 M59,50 C64,48 69,47.6 75,49 M59,57 C64,55 69,54.6 75,56 M59,64 C64,62 69,61.6 75,63" />
+</vector>

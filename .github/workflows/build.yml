@@ -1,0 +1,80 @@
+name: Build Lời giải hay (APK + IPA)
+
+on:
+  push:
+    branches: [main, loigiaihay-app]
+    paths-ignore: ["dist/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+      - name: Build APK
+        working-directory: android
+        run: gradle assembleRelease --no-daemon
+      - run: cp android/app/build/outputs/apk/release/app-release.apk LoiGiaiHay.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoiGiaiHay-apk
+          path: LoiGiaiHay.apk
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild -project LoiGiaiHay.xcodeproj -scheme LoiGiaiHay -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/LoiGiaiHay.app Payload/
+          zip -qry LoiGiaiHay-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoiGiaiHay-ipa
+          path: LoiGiaiHay-unsigned.ipa
+
+  publish:
+    # Đưa APK + IPA vào nhánh "<nhánh>-builds" để tải trực tiếp
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Push builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          git init -q -b "${GITHUB_REF_NAME}-builds"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          echo "Built from ${GITHUB_SHA} on $(date -u)" > BUILD.txt
+          git add -A
+          git commit -qm "Builds for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}-builds"

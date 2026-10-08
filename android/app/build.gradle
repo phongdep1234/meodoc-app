@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.phong.loigiaihay'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.phong.loigiaihay'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            // Khoá ký riêng (loigiaihay.jks) để cài/cập nhật APK ngoài Play Store
+            storeFile file('loigiaihay.jks')
+            storePassword 'loigiaihay123'
+            keyAlias 'loigiaihay'
+            keyPassword 'loigiaihay123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    sourceSets {
+        main.assets.srcDirs += ['../../shared']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
