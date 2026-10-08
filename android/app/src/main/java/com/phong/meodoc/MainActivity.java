@@ -52,10 +52,9 @@ public class MainActivity extends Activity {
 
     private static final String[][] TABS = {
             {"⌂", "Trang chủ", "https://meosss.com/"},
-            {"✦", "Mới", "https://meosss.com/moi-cap-nhat/"},
-            {"♥", "Thư viện", "https://meosss.com/thu-vien-cua-toi/"},
-            {"◷", "Lịch sử", "https://meosss.com/lich-su-doc/"},
-            {"⟳", "Tải lại", null},
+            {"‹", "Chương trước", "@prev"},
+            {"☰", "Chọn chương", "@list"},
+            {"›", "Chương sau", "@next"},
     };
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -94,7 +93,8 @@ public class MainActivity extends Activity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setSupportMultipleWindows(false);
-        shieldJs = AdShield.loadScript(this);
+        shieldJs = AdShield.loadScript(this, "adshield.js") + "\n" + AdShield.loadScript(this, "chapnav.js");
+        web.addJavascriptInterface(new NavBridge(), "CuuAmApp");
 
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
@@ -162,7 +162,8 @@ public class MainActivity extends Activity {
         // Ẩn thanh dưới khi cuộn xuống, hiện lại khi cuộn lên
         web.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             int dy = y - oy;
-            if (dy > 12) setBarHidden(true);
+            if (!web.canScrollVertically(1)) setBarHidden(false);      // cuối chương → hiện thanh để sang chương
+            else if (dy > 12) setBarHidden(true);
             else if (dy < -12 || y < dp(40)) setBarHidden(false);
         });
 
@@ -191,7 +192,7 @@ public class MainActivity extends Activity {
             tv.setTextColor(Color.parseColor("#F3DCE8"));
             tv.setTypeface(Typeface.DEFAULT_BOLD);
             tv.setOnClickListener(v -> {
-                if (t[2] == null) web.reload();
+                if (t[2].startsWith("@")) chapterAction(t[2].substring(1));
                 else web.loadUrl(t[2]);
             });
             tabs[i] = tv;
@@ -282,6 +283,49 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+    }
+
+    /** prev / next / list — chạy trong trang (chapnav.js), kết quả trả về qua NavBridge. */
+    private void chapterAction(String action) {
+        injectShield();
+        web.evaluateJavascript("window.__cuuam && window.__cuuam.run('" + action + "')", null);
+    }
+
+    private final class NavBridge {
+        @android.webkit.JavascriptInterface
+        public void onNav(String json) {
+            runOnUiThread(() -> handleNav(json));
+        }
+    }
+
+    private void handleNav(String json) {
+        try {
+            org.json.JSONObject o = new org.json.JSONObject(json);
+            if ("toast".equals(o.optString("type"))) {
+                Toast.makeText(this, o.optString("text"), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!"list".equals(o.optString("type"))) return;
+            org.json.JSONArray items = o.getJSONArray("items");
+            final String[] titles = new String[items.length()];
+            final String[] urls = new String[items.length()];
+            for (int i = 0; i < items.length(); i++) {
+                titles[i] = items.getJSONObject(i).optString("t");
+                urls[i] = items.getJSONObject(i).optString("u");
+            }
+            final int cur = o.optInt("current", -1);
+            android.app.AlertDialog d = new android.app.AlertDialog.Builder(this,
+                    android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Chọn chương (" + titles.length + ")")
+                    .setSingleChoiceItems(titles, cur, (dlg, which) -> {
+                        dlg.dismiss();
+                        if (which != cur) web.loadUrl(urls[which]);
+                    })
+                    .setNegativeButton("Đóng", null)
+                    .create();
+            d.show();
+            if (cur > 2) d.getListView().setSelection(cur - 2);
+        } catch (Exception ignored) { }
     }
 
     private void injectShield() {

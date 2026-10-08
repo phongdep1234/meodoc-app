@@ -25,10 +25,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
 
     private let tabs: [(icon: String, title: String, url: String?)] = [
         ("house.fill", "Trang chủ", "https://meosss.com/"),
-        ("sparkles", "Mới", "https://meosss.com/moi-cap-nhat/"),
-        ("heart.fill", "Thư viện", "https://meosss.com/thu-vien-cua-toi/"),
-        ("clock.fill", "Lịch sử", "https://meosss.com/lich-su-doc/"),
-        ("chevron.backward", "Quay lại", nil),
+        ("chevron.left.circle.fill", "Chương trước", "@prev"),
+        ("list.bullet.rectangle.fill", "Chọn chương", "@list"),
+        ("chevron.right.circle.fill", "Chương sau", "@next"),
     ]
 
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
@@ -48,6 +47,12 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             config.userContentController.addUserScript(
                 WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         }
+        if let u = Bundle.main.url(forResource: "chapnav", withExtension: "js"),
+           let js = try? String(contentsOf: u, encoding: .utf8) {
+            config.userContentController.addUserScript(
+                WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
+        config.userContentController.add(NavMessageProxy(self), name: "cuuam")
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -142,10 +147,57 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     @objc private func tabTapped(_ b: UIButton) {
-        if let s = tabs[b.tag].url, let u = URL(string: s) {
+        guard let s = tabs[b.tag].url else { return }
+        if s.hasPrefix("@") {
+            let action = String(s.dropFirst())
+            webView.evaluateJavaScript("window.__cuuam && window.__cuuam.run('\(action)')", completionHandler: nil)
+        } else if let u = URL(string: s) {
             webView.load(URLRequest(url: u))
-        } else if webView.canGoBack {
-            webView.goBack()
+        }
+    }
+
+    // MARK: - Chương trước / Chọn chương / Chương sau
+
+    fileprivate func handleNav(_ json: String) {
+        guard let data = json.data(using: .utf8),
+              let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        switch o["type"] as? String {
+        case "toast":
+            toast(o["text"] as? String ?? "")
+        case "list":
+            let items = (o["items"] as? [[String: String]] ?? []).map { ($0["t"] ?? "", $0["u"] ?? "") }
+            let picker = ChapterPicker(items: items, current: o["current"] as? Int ?? -1) { [weak self] url in
+                if let u = URL(string: url) { self?.webView.load(URLRequest(url: u)) }
+            }
+            let nav = UINavigationController(rootViewController: picker)
+            if let sheet = nav.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+            }
+            present(nav, animated: true)
+        default: break
+        }
+    }
+
+    private func toast(_ text: String) {
+        let l = PaddedLabel()
+        l.text = text
+        l.textColor = barText
+        l.backgroundColor = barBg
+        l.font = .systemFont(ofSize: 14, weight: .semibold)
+        l.layer.cornerRadius = 10
+        l.clipsToBounds = true
+        l.alpha = 0
+        l.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(l)
+        NSLayoutConstraint.activate([
+            l.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            l.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -70),
+        ])
+        UIView.animate(withDuration: 0.2, animations: { l.alpha = 1 }) { _ in
+            UIView.animate(withDuration: 0.3, delay: 1.6, options: [], animations: { l.alpha = 0 }) { _ in
+                l.removeFromSuperview()
+            }
         }
     }
 
@@ -181,7 +233,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     private func didScroll(_ sv: UIScrollView) {
         let y = sv.contentOffset.y
         let dy = y - lastY
-        if dy > 12 && y > 40 { setBarHidden(true) }
+        let atBottom = y + sv.bounds.height >= sv.contentSize.height - 30
+        if atBottom && sv.contentSize.height > sv.bounds.height { setBarHidden(false) }   // cuối chương → hiện thanh
+        else if dy > 12 && y > 40 { setBarHidden(true) }
         else if dy < -12 || y < 40 { setBarHidden(false) }
         lastY = y
     }
@@ -235,5 +289,70 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         a.addAction(UIAlertAction(title: "Huỷ", style: .cancel) { _ in completionHandler(false) })
         a.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler(true) })
         present(a, animated: true)
+    }
+}
+
+
+/// Nhận tin nhắn từ chapnav.js (giữ tham chiếu yếu để tránh vòng giữ bộ nhớ).
+private final class NavMessageProxy: NSObject, WKScriptMessageHandler {
+    weak var owner: WebViewController?
+    init(_ owner: WebViewController) { self.owner = owner }
+    func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let s = message.body as? String { owner?.handleNav(s) }
+    }
+}
+
+/// Bảng chọn chương (mới nhất ở trên, cuộn sẵn tới chương đang đọc).
+private final class ChapterPicker: UITableViewController {
+    private let items: [(String, String)]
+    private let current: Int
+    private let onPick: (String) -> Void
+
+    init(items: [(String, String)], current: Int, onPick: @escaping (String) -> Void) {
+        self.items = items; self.current = current; self.onPick = onPick
+        super.init(style: .insetGrouped)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Chọn chương (\(items.count))"
+        navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .close, primaryAction: UIAction { [weak self] _ in
+            self?.dismiss(animated: true)
+        })
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "c")
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if current >= 0 && current < items.count {
+            tableView.scrollToRow(at: IndexPath(row: current, section: 0), at: .middle, animated: false)
+        }
+    }
+
+    override func tableView(_ tv: UITableView, numberOfRowsInSection section: Int) -> Int { items.count }
+
+    override func tableView(_ tv: UITableView, cellForRowAt ip: IndexPath) -> UITableViewCell {
+        let c = tv.dequeueReusableCell(withIdentifier: "c", for: ip)
+        var cfg = c.defaultContentConfiguration()
+        cfg.text = items[ip.row].0
+        let isCur = ip.row == current
+        cfg.textProperties.font = .systemFont(ofSize: 16, weight: isCur ? .bold : .regular)
+        cfg.textProperties.color = isCur ? .systemPink : .label
+        c.contentConfiguration = cfg
+        c.accessoryType = isCur ? .checkmark : .none
+        return c
+    }
+
+    override func tableView(_ tv: UITableView, didSelectRowAt ip: IndexPath) {
+        let url = items[ip.row].1
+        dismiss(animated: true) { [onPick] in onPick(url) }
+    }
+}
+
+private final class PaddedLabel: UILabel {
+    override func drawText(in rect: CGRect) { super.drawText(in: rect.insetBy(dx: 14, dy: 8)) }
+    override var intrinsicContentSize: CGSize {
+        let s = super.intrinsicContentSize; return CGSize(width: s.width + 28, height: s.height + 16)
     }
 }

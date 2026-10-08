@@ -4,7 +4,7 @@
 
 App mở chính trang meosss.com bên trong, nên đăng nhập, Thư viện, Lịch sử đọc, Mở khoá… đều hoạt động như trên web. Thêm vào đó:
 
-- Thanh dưới: Trang chủ · Mới · Thư viện · Lịch sử · Tải lại (Android) / Quay lại (iPhone); tự ẩn khi cuộn xuống, hiện khi cuộn lên
+- Thanh dưới: Trang chủ · Chương trước · Chọn chương · Chương sau; tự ẩn khi cuộn xuống, hiện khi cuộn lên hoặc tới cuối chương
 - Mở trang chương → chế độ đọc: ẩn thanh trạng thái, giữ màn hình luôn sáng
 - Nhớ trang đang đọc, mở lại app là quay về đúng chỗ
 - Giữ đăng nhập (cookie)
